@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>4K Beneficiaries — Animated Map (Bicol Region)</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { width: 100%; height: 100%; }
+    .control-bar {
+      position: absolute;
+      z-index: 1000;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255,255,255,0.95);
+      padding: 10px 14px;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .control-bar button {
+      border: 0;
+      border-radius: 12px;
+      padding: 8px 12px;
+      background: #2563eb;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .control-bar button.secondary {
+      background: #e5e7eb;
+      color: #111827;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(17,24,39,0.8);
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+    .province-label {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background: rgba(17,24,39,0.85);
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      font-size: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.15);
+    }
+    .legend {
+      position: absolute;
+      right: 16px; top: 16px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.95);
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      font-size: 13px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.12);
+      max-width: 260px;
+    }
+    .legend h4 { margin: 0 0 8px 0; font-size: 14px; }
+    .legend ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
+    .legend li { display: flex; align-items: center; gap: 8px; }
+    .dot {
+      width: 10px; height: 10px; border-radius: 999px; background: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37,99,235,0.25);
+      flex: 0 0 auto;
+    }
+    .province-dot {
+      width: 10px; height: 10px; border-radius: 999px; background: #16a34a;
+      box-shadow: 0 0 0 2px rgba(22,163,74,0.25);
+      flex: 0 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="province-label" id="provinceLabel">Loading…</div>
+  <div class="legend">
+    <h4>4K Map — Places Marked</h4>
+    <ul>
+      <li><span class="dot"></span> Municipalities / City markers</li>
+      <li><span class="province-dot"></span> Province highlight (centroid)</li>
+      <li>Use the controls at bottom to play/pause or step</li>
+      <li>Zoom & pan freely; markers show names on hover/click</li>
+    </ul>
+  </div>
+  <div class="control-bar">
+    <button class="secondary" id="prevBtn">◀ Prev</button>
+    <button id="playBtn">▶ Play</button>
+    <button class="secondary" id="nextBtn">Next ▶</button>
+    <span class="badge" id="stepBadge">Step 1 / 4</span>
+  </div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script>
+    // --- Map Base ---
+    const map = L.map('map', { zoomControl: true }).setView([13.35, 123.5], 8);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // --- Data: Province centroids + places ---
+    const provinces = [
+      {
+        name: "Camarines Sur",
+        centroid: [13.61, 123.33],
+        places: [
+          { name: "Ocampo", coords: [13.466, 123.367] },
+          { name: "Tigaon", coords: [13.633, 123.453] },
+          { name: "Sagñay", coords: [13.567, 123.529] },
+          { name: "Goa", coords: [13.702, 123.436] },
+          { name: "Iriga City", coords: [13.418, 123.417] },
+          { name: "Baao", coords: [13.454, 123.365] },
+          { name: "Buhi", coords: [13.433, 123.52] },
+        ],
+      },
+      {
+        name: "Camarines Norte",
+        centroid: [14.17, 122.86],
+        places: [
+          { name: "Capalonga", coords: [14.333, 122.583] },
+          { name: "Labo", coords: [14.135, 122.83] },
+          { name: "Jose Panganiban", coords: [14.292, 122.69] },
+        ],
+      },
+      {
+        name: "Albay",
+        centroid: [13.25, 123.67],
+        places: [
+          { name: "Tiwi", coords: [13.458, 123.682] },
+        ],
+      },
+      {
+        name: "Sorsogon",
+        centroid: [12.93, 124.02],
+        places: [
+          { name: "Pilar", coords: [12.93, 123.68] },
+          { name: "Donsol", coords: [12.91, 123.60] },
+          { name: "Bulusan", coords: [12.75, 124.12] },
+        ],
+      },
+    ];
+
+    // --- Layers per step ---
+    let current = 0;
+    let playTimer = null;
+    const stepDurationMs = 3000; // 3s per province
+    const provinceLabel = document.getElementById('provinceLabel');
+    const stepBadge = document.getElementById('stepBadge');
+    const markersByProvince = [];
+    const provinceGlowLayers = [];
+
+    // Pre-create layers
+    provinces.forEach((prov) => {
+      const markerGroup = L.layerGroup();
+      prov.places.forEach((p) => {
+        const m = L.circleMarker(p.coords, {
+          radius: 7,
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.85,
+        }).bindTooltip(p.name, { direction: "top", offset: [0, -8], opacity: 0.9 });
+        m.bindPopup(`<b>${p.name}</b><br><small>${prov.name}</small>`);
+        m.addTo(markerGroup);
+      });
+      markersByProvince.push(markerGroup);
+
+      // Province glow (centroid circle)
+      const glow = L.circle(prov.centroid, {
+        radius: 18000, // ~18km visual halo
+        weight: 2,
+        opacity: 0.9,
+        fillOpacity: 0.15,
+      }).bindTooltip(prov.name, { permanent: true, direction: "center" });
+      provinceGlowLayers.push(glow);
+    });
+
+    const allMarkers = L.featureGroup([].concat(...markersByProvince.map(g => g.getLayers())));
+    const allBounds = L.latLngBounds([]);
+    allMarkers.getLayers().forEach(l => { if (l.getLatLng) allBounds.extend(l.getLatLng()); });
+    if (allBounds.isValid()) map.fitBounds(allBounds.pad(0.2));
+
+    function showStep(i) {
+      // Clear previous
+      markersByProvince.forEach(g => map.removeLayer(g));
+      provinceGlowLayers.forEach(g => map.removeLayer(g));
+
+      current = (i + provinces.length) % provinces.length;
+      const prov = provinces[current];
+      const markers = markersByProvince[current];
+      const glow = provinceGlowLayers[current];
+
+      glow.addTo(map);
+      markers.addTo(map);
+
+      // Label + badge
+      provinceLabel.textContent = `Province: ${prov.name}`;
+      stepBadge.textContent = `Step ${current + 1} / ${provinces.length}`;
+
+      // Fit to current province markers
+      const b = L.latLngBounds([]);
+      prov.places.forEach(p => b.extend(p.coords));
+      b.extend(prov.centroid);
+      if (b.isValid()) map.flyToBounds(b.pad(0.35), { duration: 1.25 });
+    }
+
+    function play() {
+      if (playTimer) return;
+      document.getElementById('playBtn').textContent = '⏸ Pause';
+      playTimer = setInterval(() => {
+        showStep(current + 1);
+      }, stepDurationMs);
+    }
+    function pause() {
+      if (!playTimer) return;
+      clearInterval(playTimer);
+      playTimer = null;
+      document.getElementById('playBtn').textContent = '▶ Play';
+    }
+
+    // Initial
+    showStep(0);
+
+    // Controls
+    document.getElementById('playBtn').addEventListener('click', () => {
+      if (playTimer) { pause(); } else { play(); }
+    });
+    document.getElementById('prevBtn').addEventListener('click', () => {
+      pause();
+      showStep(current - 1);
+    });
+    document.getElementById('nextBtn').addEventListener('click', () => {
+      pause();
+      showStep(current + 1);
+    });
+  </script>
+</body>
+</html>
